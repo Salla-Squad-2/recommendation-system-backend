@@ -6,23 +6,8 @@ A Node.js-based recommendation system using OpenSearch for product recommendatio
 
 ### Authentication
 - User registration with email validation and secure password requirements
-- Login with JWT access tokens and refresh tokens
+- Login with access tokens and refresh tokens
 - Password reset functionality
-- Secure token management using OpenSearch
-
-### Product Recommendations
-1. **Similar Products** (`/api/recommendations/similar/:productCode`)
-   - Uses vector similarity (kNN) to find similar products
-   - Returns top 100 similar items based on product vectors
-
-2. **You May Like This** (`/api/recommendations/you-may-like/:customerId`)
-   - Personalized recommendations based on customer's last purchase
-   - Uses vector similarity to find products similar to recent purchases
-   - Filters by same category for more relevant suggestions
-
-3. **Frequently Bought Together** (`/api/recommendations/frequently-bought/:productCode`)
-   - Analyzes order history to find co-purchased items
-   - Returns top 10 products frequently bought with the specified item
 
 ## Project Structure
 
@@ -48,6 +33,20 @@ A Node.js-based recommendation system using OpenSearch for product recommendatio
 
 ### Environment Configuration
 - **.env.example**: Template for environment variables
+   - Analyzes order history to find co-purchased items
+   - Returns top 10 products frequently bought with the specified item
+
+### Product Recommendations
+1. **Similar Products** (`/api/recommendations/similar/:productCode`)
+   - Uses vector similarity (kNN) to find similar products
+   - Returns top 100 similar items based on product vectors
+
+2. **You May Like This** (`/api/recommendations/you-may-like/:customerId`)
+   - Personalized recommendations based on customer's last purchase
+   - Uses vector similarity to find products similar to recent purchases
+   - Filters by same category for more relevant suggestions
+
+3. **Frequently Bought Together** (`/api/recommendations/frequently-bought/:productCode`)
    - Analyzes order history to find co-purchased items
    - Returns top 10 products frequently bought with the specified item
 
@@ -102,110 +101,3 @@ JWT_SECRET=your-jwt-secret
 ACCESS_TOKEN=your-access-token
 REFRESH_TOKEN=your-refresh-token
 ```
-
-### Installation
-
-1. **Without Docker:**
-```bash
-# Install dependencies
-npm install
-
-# Setup database indices
-node scripts/setup-db.js
-
-# Start server
-node index.js
-```
-
-2. **With Docker:**
-```bash
-# Build image
-docker build -t recommendation-system .
-
-# Run container
-docker run -p 3008:3008 --env-file .env recommendation-system
-```
-
-## Database Schema
-
-### OpenSearch Indices
-
-1. **users**
-```json
-{
-  "id": "string",
-  "email": "string",
-  "username": "string",
-  "password": "string (hashed)",
-  "status": "string",
-  "created_at": "date"
-}
-```
-
-2. **refresh_tokens**
-```json
-{
-  "user_id": "string",
-  "token": "string",
-  "expires_at": "date"
-}
-```
-
-3. **products-history-vectors**
-```json
-{
-  "productCode": "string",
-  "name": "string",
-  "description": "string",
-  "price": "number",
-  "category": "string",
-  "combination_vector": "float[]"
-}
-```
-
-4. **orders**
-```json
-{
-  "order_id": "string",
-  "products": [
-    {
-      "productCode": "string",
-      "name": "string",
-      "price": "number",
-      "category": "string",
-      "quantity": "number"
-    }
-  ],
-  "purchase_date": "date"
-}
-```
-
-## Docker Support
-
-The system can be containerized using Docker. The included Dockerfile:
-- Uses Node.js 16 Alpine base image
-- Installs production dependencies only
-- Sets up environment for running the application
-- Exposes port 3008
-- Implements health checks
-
-## Security Features
-- Password hashing with bcrypt
-- JWT token-based authentication
-- Refresh token rotation
-- Input validation and sanitization
-- CORS enabled
-- Rate limiting (configurable)
-
-## Error Handling
-- Comprehensive error messages
-- HTTP status codes
-- Request validation
-- OpenSearch connection error handling
-
-## Performance Considerations
-- kNN search for fast vector similarity
-- Indexed queries for quick lookups
-- Response pagination
-- Caching headers
-- Efficient vector calculations
