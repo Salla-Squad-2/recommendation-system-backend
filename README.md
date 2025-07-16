@@ -24,6 +24,33 @@ A Node.js-based recommendation system using OpenSearch for product recommendatio
    - Analyzes order history to find co-purchased items
    - Returns top 10 products frequently bought with the specified item
 
+## Project Structure
+
+### `index.js`
+- Main application file
+- Sets up Express server
+- Configures middleware
+- Sets up OpenSearch client
+- Mounts routes
+- Adds health check endpoint
+
+### `routes/`
+- **authRoutes.js**: Authentication routes
+- **recommendationRoutes.js**: Product recommendation routes
+
+### `models/`
+- **User.js**: User model for OpenSearch
+- **RefreshToken.js**: Token management
+
+### `scripts/`
+- **createFakeUsers.js**: Script to create test users
+- **viewOpenSearchData.js**: Script to view OpenSearch data
+
+### Environment Configuration
+- **.env.example**: Template for environment variables
+   - Analyzes order history to find co-purchased items
+   - Returns top 10 products frequently bought with the specified item
+
 4. **Customer-Specific Recommendations** (`/api/recommendations/customer/:customerId`)
    - Analyzes customer's entire purchase history
    - Uses average vector of all purchases for recommendations
