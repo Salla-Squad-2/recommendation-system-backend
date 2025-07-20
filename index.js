@@ -84,7 +84,8 @@ app.get('/api/search', async (req, res) => {
       description: hit._source.description,
       price: hit._source.price,
       category: hit._source.category,
-      quantity_of_product: hit._source.quantity_of_product
+      quantity_of_product: hit._source.quantity_of_product,
+      image: hit._source.image
     }));
 
     res.json({
@@ -139,7 +140,8 @@ app.get('/api/related/:productCode', async (req, res) => {
       description: hit._source.description,
       price: hit._source.price,
       category: hit._source.category,
-      similarity_score: hit._score
+      similarity_score: hit._score,
+      image: hit._source.image
     }));
 
     res.json({
@@ -282,7 +284,8 @@ app.get('/api/frequently-bought/:productCode', async (req, res) => {
       recommendation_type: hit._source.order_id && orderIds.includes(hit._source.order_id) ? 
         'frequently_bought' : 
         targetCategories.includes(hit._source.category) ? 
-          'complementary_category' : 'similar_product'
+          'complementary_category' : 'similar_product',
+      image: hit._source.image
     }));
 
     res.json({
