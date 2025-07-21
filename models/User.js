@@ -12,16 +12,12 @@ class User {
 
   async initialize() {
     try {
-      console.log('Checking if index exists:', this.index);
-      // Check if index exists
       const { body: exists } = await this.client.indices.exists({
         index: this.index
       });
 
       if (!exists) {
-        console.log('Creating new index:', this.index);
-        // Create index with mappings
-        const { body: response } = await this.client.indices.create({
+        await this.client.indices.create({
           index: this.index,
           body: {
             mappings: {
@@ -31,13 +27,14 @@ class User {
                 username: { type: 'keyword' },
                 password: { type: 'keyword' },
                 status: { type: 'keyword' },
-                created_at: { type: 'date' }
+                created_at: { type: 'date' },
+                reset_token: { type: 'keyword' },
+                reset_token_expiry: { type: 'date' }
               }
             }
           }
         });
         console.log('Index created successfully:', this.index);
-        console.log('Response:', JSON.stringify(response, null, 2));
       } else {
         console.log('Index already exists:', this.index);
       }
@@ -47,8 +44,7 @@ class User {
     }
   }
 
-  validatePassword(password) {
-    // Password must be at least 8 characters long and contain at least one number, one uppercase letter, and one special character
+  validatePasswordStrength(password) {
     const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*])(?=.{8,})/;
     return passwordRegex.test(password);
   }
@@ -60,18 +56,17 @@ class User {
 
   async create(userData) {
     try {
-      // Validate email and password
       if (!this.validateEmail(userData.email)) {
         throw new Error('Invalid email format');
       }
-      if (!this.validatePassword(userData.password)) {
+
+      if (!this.validatePasswordStrength(userData.password)) {
         throw new Error('Password must be at least 8 characters long and contain at least one number, one uppercase letter, and one special character');
       }
+
       await this.initialize();
 
       const { email, password, username } = userData;
-      console.log('Creating user with email:', email);
-
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -81,19 +76,17 @@ class User {
         username,
         password: hashedPassword,
         status: 'active',
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        reset_token: null,
+        reset_token_expiry: null
       };
 
-      console.log('Indexing user document...');
-      const { body: response } = await this.client.index({
+      await this.client.index({
         index: this.index,
         id: user.id,
         body: user,
         refresh: true
       });
-
-      console.log('User created successfully!');
-      console.log('Response:', JSON.stringify(response, null, 2));
 
       const { password: _, ...userWithoutPassword } = user;
       return userWithoutPassword;
@@ -133,11 +126,72 @@ class User {
       id: userId,
       body: {
         doc: {
-          password: hashedPassword
+          password: hashedPassword,
+          reset_token: null,
+          reset_token_expiry: null
         }
       }
     });
   }
+
+  async updateResetToken(userId, token, expiry) {
+    await this.client.update({
+      index: this.index,
+      id: userId,
+      body: {
+        doc: {
+          reset_token: token,
+          reset_token_expiry: expiry.toISOString()
+        }
+      }
+    });
+  }
+  
+
+async findByResetToken(token) {
+  console.log('Looking for reset token:', token);
+
+  const result = await this.client.search({
+    index: this.index,
+    body: {
+      query: {
+        term: { reset_token: token }
+      }
+    }
+  });
+
+  if (result.body.hits.total.value === 0) {
+    console.log('No reset token found');
+    return null;
+  }
+
+  const user = result.body.hits.hits[0]._source;
+
+  // ✅ تحقق من تاريخ الانتهاء
+  if (new Date(user.reset_token_expiry) < new Date()) {
+    console.log('Reset token has expired');
+    return null;
+  }
+
+  console.log('Found user reset token expiry:', user.reset_token_expiry);
+  return user;
+}
+// داخل كلاس User
+async findById(userId) {
+  try {
+    const result = await this.client.get({
+      index: this.index,
+      id: userId
+    });
+    return result.body._source;
+  } catch (error) {
+    if (error.meta.statusCode === 404) {
+      return null;
+    }
+    throw error;
+  }
 }
 
+
+}
 module.exports = User;
