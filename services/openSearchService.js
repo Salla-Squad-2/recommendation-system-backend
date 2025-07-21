@@ -1,4 +1,3 @@
-const axios = require('axios');
 
 const OPENSEARCH_SERVICE_URL = process.env.OPENSEARCH_SERVICE_URL || 'http://localhost:3001';
 
