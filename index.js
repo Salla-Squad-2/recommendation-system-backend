@@ -1,9 +1,17 @@
 const express = require('express');
+const app = express();
+app.use(express.json());
 const cors = require('cors');
 const { Client } = require('@opensearch-project/opensearch');
 require('dotenv').config();
+console.log('JWT_SECRET from env:', process.env.JWT_SECRET);
 
-const app = express();
+
+// Import routes
+const authRoutes = require('./routes/authRoutes');
+const recommendationRoutes = require('./routes/recommendationRoutes');
+const { authLimiter } = require('./middleware/rateLimiter');
+
 const port = process.env.PORT || 3008;
 
 // Enable CORS for frontend
@@ -149,8 +157,10 @@ app.get('/api/search', async (req, res) => {
       price: hit._source.price,
       category: hit._source.category,
       quantity_of_product: hit._source.quantity_of_product,
+
       // Include all possible image fields from OpenSearch
       image: hit._source.image || hit._source.image_url || hit._source.product_image || hit._source.img_url || hit._source.photo_url || hit._source.picture_url || hit._source.thumbnail || hit._source.product_photo || hit._source.photo || hit._source.picture || hit._source.img
+
     }));
 
     res.json({
@@ -214,8 +224,10 @@ app.get('/api/related/:productCode', async (req, res) => {
       price: hit._source.price,
       category: hit._source.category,
       similarity_score: hit._score,
+
       // Include all possible image fields from OpenSearch
       image: hit._source.image || hit._source.image_url || hit._source.product_image || hit._source.img_url || hit._source.photo_url || hit._source.picture_url || hit._source.thumbnail || hit._source.product_photo || hit._source.photo || hit._source.picture || hit._source.img
+
     }));
 
     res.json({
@@ -359,8 +371,10 @@ app.get('/api/frequently-bought/:productCode', async (req, res) => {
         'frequently_bought' : 
         targetCategories.includes(hit._source.category) ? 
           'complementary_category' : 'similar_product',
+
       // Include all possible image fields from OpenSearch
       image: hit._source.image || hit._source.image_url || hit._source.product_image || hit._source.img_url || hit._source.photo_url || hit._source.picture_url || hit._source.thumbnail || hit._source.product_photo || hit._source.photo || hit._source.picture || hit._source.img
+
     }));
 
     res.json({
