@@ -3,35 +3,74 @@ const cors = require('cors');
 const { Client } = require('@opensearch-project/opensearch');
 require('dotenv').config();
 
-// Import routes
-const authRoutes = require('./routes/authRoutes');
-const recommendationRoutes = require('./routes/recommendationRoutes');
-
 const app = express();
 const port = process.env.PORT || 3008;
 
+// Enable CORS for frontend
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'], // Allow both localhost and 127.0.0.1
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Parse JSON bodies
+app.use(express.json());
+
 // OpenSearch client
 const client = new Client({
-  node: process.env.OS_URL,
+  node: process.env.OS_URL || 'http://localhost:9200',
   auth: {
-    username: process.env.OS_USERNAME,
-    password: process.env.OS_PASSWORD,
+    username: process.env.OS_USERNAME || 'admin',
+    password: process.env.OS_PASSWORD || 'admin',
   },
   ssl: {
     rejectUnauthorized: false
-  }
+  },
+  // Add more connection options
+  maxRetries: 3,
+  requestTimeout: 10000,
+  sniffOnStart: false
 });
-
-// Make OpenSearch client available to routes
-app.set('opensearchClient', client);
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/recommendations', recommendationRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Test OpenSearch connection
+app.get('/test-opensearch', async (req, res) => {
+  try {
+    console.log('Testing OpenSearch connection...');
+    
+    // Test basic connection
+    const info = await client.info();
+    console.log('OpenSearch info:', info.body);
+    
+    // List all indices
+    const indices = await client.transport.request({
+  method: 'GET',
+  path: '/_cat/indices',
+  querystring: {
+    format: 'json'
+  }
+});
+
+    console.log('Available indices:', indices.body);
+    
+    res.json({
+      success: true,
+      opensearchInfo: info.body,
+      indices: indices.body
+    });
+  } catch (err) {
+    console.error('OpenSearch connection test failed:', err);
+    res.status(500).json({
+      success: false,
+      error: `OpenSearch connection failed: ${err.message}`,
+      details: err
+    });
+  }
 });
 
 // search with filters
@@ -39,8 +78,30 @@ app.get('/api/search', async (req, res) => {
   const { name, category, minPrice, maxPrice } = req.query;
 
   try {
+    // First, check if the index exists
+    try {
+      const indexExists = await client.indices.exists({
+        index: 'products-history-vectors-img'
+      });
+      
+      if (!indexExists.body) {
+        console.log('Index products-history-vectors-img does not exist');
+        return res.json({
+          success: true,
+          products: [],
+          message: 'No products index found'
+        });
+      }
+    } catch (indexError) {
+      console.error('Error checking index:', indexError);
+      return res.status(500).json({
+        success: false,
+        error: 'Error checking OpenSearch index'
+      });
+    }
+
     const searchQuery = {
-      index: 'products-history-vectors',
+      index: 'products-history-vectors-img',
       body: {
         size: 100
       }
@@ -77,14 +138,19 @@ app.get('/api/search', async (req, res) => {
       }
     }
 
+    console.log('Executing search query:', JSON.stringify(searchQuery, null, 2));
     const result = await client.search(searchQuery);
+    console.log('Search result hits:', result.body.hits.total.value);
+    
     const products = result.body.hits.hits.map(hit => ({
       productCode: hit._source.productCode,
       name: hit._source.name,
       description: hit._source.description,
       price: hit._source.price,
       category: hit._source.category,
-      quantity_of_product: hit._source.quantity_of_product
+      quantity_of_product: hit._source.quantity_of_product,
+      // Include all possible image fields from OpenSearch
+      image: hit._source.image || hit._source.image_url || hit._source.product_image || hit._source.img_url || hit._source.photo_url || hit._source.picture_url || hit._source.thumbnail || hit._source.product_photo || hit._source.photo || hit._source.picture || hit._source.img
     }));
 
     res.json({
@@ -93,9 +159,10 @@ app.get('/api/search', async (req, res) => {
     });
   } catch (err) {
     console.error('Error searching products:', err);
+    console.error('Error details:', err.message);
     res.status(500).json({
       success: false,
-      error: 'Failed to search products'
+      error: `Failed to search products: ${err.message}`
     });
   }
 });
@@ -106,7 +173,7 @@ app.get('/api/related/:productCode', async (req, res) => {
 
   try {
     const sourceProduct = await client.search({
-      index: 'products-history-vectors',
+      index: 'products-history-vectors-img',
       body: {
         query: {
           term: { productCode: productCode }
@@ -114,10 +181,17 @@ app.get('/api/related/:productCode', async (req, res) => {
       }
     });
 
+    if (sourceProduct.body.hits.total.value === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Product not found'
+      });
+    }
+
     const product = sourceProduct.body.hits.hits[0]._source;
 
     const searchQuery = {
-      index: 'products-history-vectors',
+      index: 'products-history-vectors-img',
       body: {
         size: 10,
         query: {
@@ -139,7 +213,9 @@ app.get('/api/related/:productCode', async (req, res) => {
       description: hit._source.description,
       price: hit._source.price,
       category: hit._source.category,
-      similarity_score: hit._score
+      similarity_score: hit._score,
+      // Include all possible image fields from OpenSearch
+      image: hit._source.image || hit._source.image_url || hit._source.product_image || hit._source.img_url || hit._source.photo_url || hit._source.picture_url || hit._source.thumbnail || hit._source.product_photo || hit._source.photo || hit._source.picture || hit._source.img
     }));
 
     res.json({
@@ -166,7 +242,7 @@ app.get('/api/frequently-bought/:productCode', async (req, res) => {
 
   try {
     const ordersWithProduct = await client.search({
-      index: 'products-history-vectors',
+      index: 'products-history-vectors-img',
       body: {
         size: 1000,
         query: {
@@ -202,7 +278,7 @@ app.get('/api/frequently-bought/:productCode', async (req, res) => {
     }
 
     const sourceProduct = await client.search({
-      index: 'products-history-vectors',
+      index: 'products-history-vectors-img',
       body: {
         query: {
           term: { productCode: productCode }
@@ -223,7 +299,7 @@ app.get('/api/frequently-bought/:productCode', async (req, res) => {
 
     const targetCategories = complementaryCategories[product.category] || [];
     const result = await client.search({
-      index: 'products-history-vectors',
+      index: 'products-history-vectors-img',
       body: {
         size: 10,
         query: {
@@ -282,7 +358,9 @@ app.get('/api/frequently-bought/:productCode', async (req, res) => {
       recommendation_type: hit._source.order_id && orderIds.includes(hit._source.order_id) ? 
         'frequently_bought' : 
         targetCategories.includes(hit._source.category) ? 
-          'complementary_category' : 'similar_product'
+          'complementary_category' : 'similar_product',
+      // Include all possible image fields from OpenSearch
+      image: hit._source.image || hit._source.image_url || hit._source.product_image || hit._source.img_url || hit._source.photo_url || hit._source.picture_url || hit._source.thumbnail || hit._source.product_photo || hit._source.photo || hit._source.picture || hit._source.img
     }));
 
     res.json({
@@ -308,11 +386,169 @@ app.get('/api/frequently-bought/:productCode', async (req, res) => {
   }
 });
 
+// Get customer recommendations
+app.get('/api/customer-recommendations/:customerId', async (req, res) => {
+  const { customerId } = req.params;
+
+  try {
+    // First, get the customer's purchase history
+    const customerHistory = await client.search({
+      index: 'products-history-vectors-img',
+      body: {
+        query: {
+          match: { 
+            id_customer: customerId 
+          }
+        },
+        size: 100
+      }
+    });
+
+    if (customerHistory.body.hits.total.value === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No purchase history found for this customer'
+      });
+    }
+
+    // Get the customer's purchased products
+    const purchasedProducts = customerHistory.body.hits.hits.map(hit => hit._source);
+    
+    // Get unique categories the customer has purchased from
+    const customerCategories = [...new Set(purchasedProducts.map(p => p.category))];
+    
+    // Get unique product codes the customer has purchased
+    const customerProductCodes = [...new Set(purchasedProducts.map(p => p.productCode))];
+
+    // Find products in similar categories that the customer hasn't purchased
+    const recommendations = await client.search({
+      index: 'products-history-vectors-img',
+      body: {
+        size: 20,
+        query: {
+          bool: {
+            should: [
+              {
+                terms: {
+                  category: customerCategories
+                }
+              },
+              {
+                knn: {
+                  combination_vector: {
+                    vector: purchasedProducts[0]?.combination_vector || [0, 0, 0, 0, 0],
+                    k: 10
+                  }
+                }
+              }
+            ],
+            must_not: [
+              {
+                terms: {
+                  productCode: customerProductCodes
+                }
+              }
+            ]
+          }
+        }
+      }
+    });
+
+    const recommendationsList = recommendations.body.hits.hits.map(hit => ({
+      productCode: hit._source.productCode,
+      name: hit._source.name,
+      description: hit._source.description,
+      price: hit._source.price,
+      category: hit._source.category,
+      score: hit._score,
+      // Include all possible image fields from OpenSearch
+      image: hit._source.image || hit._source.image_url || hit._source.product_image || hit._source.img_url || hit._source.photo_url || hit._source.picture_url || hit._source.thumbnail || hit._source.product_photo || hit._source.photo || hit._source.picture || hit._source.img
+    }));
+
+    res.json({
+      success: true,
+      recommendations: recommendationsList
+    });
+  } catch (err) {
+    console.error('Error getting customer recommendations:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get customer recommendations'
+    });
+  }
+});
+
+// Get all orders
+app.get('/api/orders', async (req, res) => {
+  try {
+    const result = await client.search({
+      index: 'products-history-vectors-img',
+      body: {
+        query: {
+          match_all: {}
+        },
+        _source: [
+          'order_id',
+          'id_customer', 
+          'productCode',
+          'name',
+          'category',
+          'purchase_date',
+          'description',
+          'quantity_of_product',
+          'price',
+          'image',
+          'image_url',
+          'product_image',
+          'img_url',
+          'photo_url',
+          'picture_url',
+          'thumbnail',
+          'product_photo',
+          'photo',
+          'picture',
+          'img'
+          
+        ],
+        size: 100
+      }
+    });
+
+    const orders = result.body.hits.hits
+      .filter(hit => hit._source.order_id && hit._source.productCode)
+      .map(hit => ({
+        orderId: hit._source.order_id,
+        customerId: hit._source.id_customer,
+        customerName: `Customer ${hit._source.id_customer}`,
+        productCode: hit._source.productCode,
+        productName: hit._source.name,
+        productDescription: hit._source.description,
+        price: hit._source.price,
+        category: hit._source.category,
+        quantity: hit._source.quantity_of_product,
+        purchaseDate: hit._source.purchase_date,
+        status: 'Delivered',
+        image: hit._source.image || hit._source.image_url || hit._source.product_image || hit._source.img_url || hit._source.photo_url || hit._source.picture_url || hit._source.thumbnail || hit._source.product_photo || hit._source.photo || hit._source.picture || hit._source.img
+      }));
+
+    res.json({
+      success: true,
+      orders
+    });
+  } catch (err) {
+    console.error('Error getting orders:', err.message, '\nFull error:', err);
+    res.status(500).json({
+      success: false,
+      error: `Failed to get orders: ${err.message}`
+    });
+  }
+});
+
 // Get all customers
 app.get('/api/customers', async (req, res) => {
   try {
     const result = await client.search({
-      index: 'products-history-vectors',
+      index: 'products-history-vectors-img',
       body: {
         query: {
           match_all: {}
@@ -326,17 +562,32 @@ app.get('/api/customers', async (req, res) => {
           'purchase_date',
           'description',
           'quantity_of_product',
-          'price'
+          'price',
+          'image',
+          'image_url',
+          'product_image',
+          'img_url',
+          'photo_url',
+          'picture_url',
+          'thumbnail',
+          'product_photo',
+          'photo',
+          'picture',
+          'img'
+          
         ],
-        size: 100
+        size: 1000
       }
     });
 
-    const customers = result.body.hits.hits
-      .filter(hit => hit._source.order_id && hit._source.productCode) 
-      .map(hit => ({
-        customerId: hit._source.id_customer, 
-        history: [{
+    // Group by customer ID to aggregate their purchase history
+    const customerMap = new Map();
+    
+    result.body.hits.hits
+      .filter(hit => hit._source.id_customer && hit._source.order_id && hit._source.productCode)
+      .forEach(hit => {
+        const customerId = hit._source.id_customer;
+        const purchase = {
           orderId: hit._source.order_id,
           productCode: hit._source.productCode,
           productName: hit._source.name,
@@ -344,9 +595,20 @@ app.get('/api/customers', async (req, res) => {
           purchaseDate: hit._source.purchase_date,
           description: hit._source.description,
           quantity: hit._source.quantity_of_product,
-          price: hit._source.price
-        }]
-      }));
+          price: hit._source.price,
+          image: hit._source.image || hit._source.image_url || hit._source.product_image || hit._source.img_url || hit._source.photo_url || hit._source.picture_url || hit._source.thumbnail || hit._source.product_photo || hit._source.photo || hit._source.picture || hit._source.img
+        };
+
+        if (!customerMap.has(customerId)) {
+          customerMap.set(customerId, {
+            customerId: customerId,
+            history: []
+          });
+        }
+        customerMap.get(customerId).history.push(purchase);
+      });
+
+    const customers = Array.from(customerMap.values());
 
     res.json({
       success: true,
@@ -372,7 +634,7 @@ app.get('/api/customers/:customerId', async (req, res) => {
 
     try {
       const customerHistory = await client.search({
-        index: 'products-history-vectors',
+        index: 'products-history-vectors-img',
         body: {
           query: {
             match: { 
@@ -400,7 +662,8 @@ app.get('/api/customers/:customerId', async (req, res) => {
         purchaseDate: hit._source.purchase_date,
         description: hit._source.description,
         quantity: hit._source.quantity_of_product,
-        price: hit._source.price
+        price: hit._source.price,
+        image: hit._source.image || hit._source.image_url || hit._source.product_image || hit._source.img_url || hit._source.photo_url || hit._source.picture_url || hit._source.thumbnail || hit._source.product_photo || hit._source.photo || hit._source.picture || hit._source.img
       }));
 
       const orderMap = new Map();
@@ -460,4 +723,5 @@ app.get('/api/customers/:customerId', async (req, res) => {
 // Start server
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
+  console.log(`OpenSearch URL: ${process.env.OS_URL || 'http://localhost:9200'}`);
 });
