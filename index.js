@@ -1,13 +1,15 @@
 const express = require('express');
+const app = express();
+app.use(express.json());
 const cors = require('cors');
 const { Client } = require('@opensearch-project/opensearch');
 require('dotenv').config();
+console.log('JWT_SECRET from env:', process.env.JWT_SECRET);
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const recommendationRoutes = require('./routes/recommendationRoutes');
-
-const app = express();
+const { authLimiter } = require('./middleware/rateLimiter');
 const port = process.env.PORT || 3008;
 
 // OpenSearch client
