@@ -86,7 +86,8 @@ router.get('/similar/:productCode', async (req, res) => {
         category: hit._source.category,
         quantity_of_product: hit._source.quantity_of_product,
         purchase_date: hit._source.purchase_date,
-        order_id: hit._source.order_id
+        order_id: hit._source.order_id,
+        image: hit._source.image
       }));
 
     res.json({
@@ -176,7 +177,8 @@ router.get('/customer/:customerId', async (req, res) => {
         name: hit._source.name,
         price: hit._source.price,
         category: hit._source.category,
-        score: hit._score
+        score: hit._score,
+        image: hit._source.image
       }))
     });
   } catch (error) {
@@ -303,7 +305,8 @@ router.get('/search', async (req, res) => {
         name: hit._source.name,
         description: hit._source.description,
         price: hit._source.price,
-        category: hit._source.category
+        category: hit._source.category,
+        image: hit._source.image
       }))
     });
   } catch (error) {
@@ -385,7 +388,8 @@ router.get('/frequently-bought/:productCode', async (req, res) => {
       name: bucket.product_details.hits.hits[0]._source.name,
       category: bucket.product_details.hits.hits[0]._source.category,
       price: bucket.product_details.hits.hits[0]._source.price,
-      frequency: bucket.doc_count
+      frequency: bucket.doc_count,
+      image: bucket.product_details.hits.hits[0]._source.image
     }));
 
     res.json({
@@ -470,7 +474,8 @@ router.get('/you-may-like/:customerId', async (req, res) => {
         description: hit._source.description,
         price: hit._source.price,
         category: hit._source.category,
-        score: hit._score
+        score: hit._score,
+        image: hit._source.image
       }))
     });
   } catch (error) {

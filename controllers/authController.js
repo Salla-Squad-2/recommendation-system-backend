@@ -1,14 +1,13 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const refreshTokenStore = require('../models/RefreshToken');
+const tokenStore = require('../models/RefreshToken');  // هنا غيرت الاسم من refreshTokenStore إلى tokenStore
 const { v4: uuidv4 } = require('uuid');
+const { generateAccessToken, generateRefreshToken, generateTokens } = require('../middleware/jwtMiddleware');
 
-const generateTokens = (userId) => {
-  const accessToken = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '15m' });
-  const refreshToken = uuidv4();
-  return { accessToken, refreshToken };
-};
-
+const SECRET = process.env.JWT_SECRET;
+console.log('tokenStore object:', tokenStore);
+console.log('tokenStore.create:', tokenStore.create);
+// تسجيل مستخدم جديد
 exports.register = async (req, res) => {
   try {
     const { email, password, username } = req.body;
@@ -20,31 +19,40 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Password and email validation is now handled in the User model
-
     const existingUser = await req.userModel.findByEmail(email);
     if (existingUser) {
       return res.status(400).json({ message: 'Email already registered' });
     }
 
     const user = await req.userModel.create({ email, password, username });
-    const { accessToken, refreshToken } = generateTokens(user.id);
-    refreshTokenStore.create(
-      user.id,
-      refreshToken,
-      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
-    );
 
-    res.status(201).json({ 
-      user: { id: user.id, email: user.email, username: user.username },
-      accessToken,
-      refreshToken
+    const { accessToken, refreshToken } = generateTokens({
+      id: user.id,
+      email: user.email,
+      role: user.role || 'user'
     });
+
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    // إنشاء refresh token مع تحديد النوع "refresh"
+    tokenStore.create(user.id, refreshToken, 'refresh', expiresAt, (err) => {
+      if (err) {
+        return res.status(500).json({ message: 'Failed to store the token' });
+      }
+
+      res.status(201).json({ 
+        user: { id: user.id, email: user.email, username: user.username },
+        accessToken,
+        refreshToken
+      });
+    });
+
   } catch (error) {
     res.status(500).json({ message: 'Error registering user', error: error.message });
   }
 };
 
+// تسجيل الدخول
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -60,64 +68,87 @@ exports.login = async (req, res) => {
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
+
     const isValidPassword = await req.userModel.validatePassword(user, password);
     if (!isValidPassword) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const { accessToken, refreshToken } = generateTokens(user.id);
-    
-    refreshTokenStore.create(
-      user.id,
-      refreshToken,
-      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
-    );
-
-    const { password: _, ...userWithoutPassword } = user;
-
-    res.json({
-      user: userWithoutPassword,
-      accessToken,
-      refreshToken
+    const { accessToken, refreshToken } = generateTokens({
+      id: user.id,
+      email: user.email,
+      role: user.role || 'user'
     });
+
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    tokenStore.create(user.id, refreshToken, 'refresh', expiresAt, (err) => {
+      if (err) {
+        return res.status(500).json({ message: 'Failed to store the token' });
+      }
+
+      const { password: _, ...userWithoutPassword } = user;
+
+      res.json({
+        user: userWithoutPassword,
+        accessToken,
+        refreshToken
+      });
+    });
+
   } catch (error) {
     res.status(500).json({ message: 'Error logging in', error: error.message });
   }
 };
 
+// تجديد التوكن
 exports.refresh = async (req, res) => {
   try {
     const { refreshToken } = req.body;
 
-    const tokenData = refreshTokenStore.findByToken(refreshToken);
-    if (!tokenData) {
-      return res.status(401).json({ message: 'Invalid refresh token' });
-    }
+    tokenStore.findByToken(refreshToken, 'refresh', async (err, tokenData) => {
+      if (err || !tokenData) {
+        return res.status(401).json({ message: 'Invalid refresh token' });
+      }
 
-    const user = await req.userModel.findById(tokenData.userId);
-    if (!user) {
-      refreshTokenStore.deleteByToken(refreshToken);
-      return res.status(401).json({ message: 'User not found' });
-    }
+      const user = await req.userModel.findById(tokenData.user_id);
+      if (!user) {
+        tokenStore.deleteByToken(refreshToken, 'refresh', () => {});
+        return res.status(401).json({ message: 'User not found' });
+      }
 
-    const accessToken = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '15m' });
+      const accessToken = generateAccessToken({
+        id: user.id,
+        email: user.email,
+        role: user.role || 'user'
+      });
 
-    res.json({ accessToken });
+      res.json({ accessToken });
+    });
+
   } catch (error) {
     res.status(500).json({ message: 'Error refreshing token', error: error.message });
   }
 };
 
+// تسجيل خروج (حذف refresh token)
 exports.logout = async (req, res) => {
   try {
     const { refreshToken } = req.body;
-    refreshTokenStore.deleteByToken(refreshToken);
-    res.json({ message: 'Logged out successfully' });
+
+    tokenStore.deleteByToken(refreshToken, 'refresh', (err) => {
+      if (err) {
+        return res.status(500).json({ message: 'Error logging out' });
+      }
+      res.json({ message: 'Logged out successfully' });
+    });
+
   } catch (error) {
     res.status(500).json({ message: 'Error logging out', error: error.message });
   }
 };
 
+// نسيان كلمة المرور - إرسال رابط إعادة تعيين
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -131,32 +162,35 @@ exports.forgotPassword = async (req, res) => {
 
     const user = await req.userModel.findByEmail(email);
     if (!user) {
-      // For security, don't reveal that the email doesn't exist
       return res.status(200).json({
         success: true,
         message: 'If your email is registered, you will receive a password reset link'
       });
     }
 
-    // Generate password reset token
     const resetToken = uuidv4();
-    const resetTokenExpiry = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
+    const resetTokenExpiry = new Date(Date.now() + 1 * 60 * 60 * 1000); // ساعة واحدة
 
-    // Save reset token to user
-    await req.userModel.updateResetToken(user.id, resetToken, resetTokenExpiry);
+    // هنا بدل updateResetToken تستخدم create مع النوع "reset"
+    tokenStore.create(user.id, resetToken, 'reset', resetTokenExpiry.toISOString(), (err) => {
+      if (err) {
+        return res.status(500).json({ message: 'Failed to store reset token' });
+      }
 
-    // In a real application, send email with reset link
-    // For now, just return the token
-    res.status(200).json({
-      success: true,
-      message: 'Password reset instructions sent',
-      resetToken // In production, this should be sent via email instead
+      // في تطبيق حقيقي ترسل عبر الإيميل، هنا نرسل التوكن فقط
+      res.status(200).json({
+        success: true,
+        message: 'Password reset instructions sent',
+        resetToken
+      });
     });
+
   } catch (error) {
     res.status(500).json({ message: 'Error processing password reset', error: error.message });
   }
 };
 
+// إعادة تعيين كلمة المرور
 exports.resetPassword = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
@@ -168,33 +202,60 @@ exports.resetPassword = async (req, res) => {
       });
     }
 
-    // Validate password strength in User model
-    if (!req.userModel.validatePassword(newPassword)) {
+    if (!req.userModel.validatePasswordStrength(newPassword)) {
       return res.status(400).json({
         success: false,
         message: 'Password must be at least 8 characters long and contain at least one number, one uppercase letter, and one special character'
       });
     }
 
-    const user = await req.userModel.findByResetToken(token);
-    if (!user) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid or expired reset token'
+    // البحث عن التوكن من جدول التوكنات مع النوع reset
+    tokenStore.findByToken(token, 'reset', async (err, tokenData) => {
+      if (err || !tokenData) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid or expired reset token'
+        });
+      }
+
+      // تحقق من انتهاء صلاحية التوكن
+      if (new Date(tokenData.expires_at) < new Date()) {
+        // حذف التوكن لأنه منتهي الصلاحية
+        tokenStore.deleteByToken(token, 'reset', () => {});
+        return res.status(400).json({
+          success: false,
+          message: 'Reset token has expired'
+        });
+      }
+
+      // جلب بيانات المستخدم حسب user_id في tokenData
+      const user = await req.userModel.findById(tokenData.user_id);
+      if (!user) {
+        return res.status(400).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      // تحديث كلمة السر (تقوم بحذف أي reset token مرتبط)
+      await req.userModel.updatePassword(user.id, newPassword);
+
+      // حذف كل توكنات التجديد (refresh tokens) الخاصة بالمستخدم (اختياري لكن جيد)
+      await tokenStore.deleteAllForUser(user.id, 'refresh');
+
+      // حذف توكن إعادة التعيين (reset token) الحالي بعد الاستخدام
+      await tokenStore.deleteByToken(token, 'reset', () => {});
+
+      res.status(200).json({
+        success: true,
+        message: 'Password has been reset successfully'
       });
-    }
-
-    // Update password and clear reset token
-    await req.userModel.updatePassword(user.id, newPassword);
-
-    // Invalidate all refresh tokens for this user
-    await refreshTokenStore.deleteAllForUser(user.id);
-
-    res.status(200).json({
-      success: true,
-      message: 'Password has been reset successfully'
     });
+
   } catch (error) {
-    res.status(500).json({ message: 'Error resetting password', error: error.message });
+    res.status(500).json({
+      message: 'Error resetting password',
+      error: error.message
+    });
   }
 };
