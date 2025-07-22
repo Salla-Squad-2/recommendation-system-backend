@@ -4,12 +4,15 @@ app.use(express.json());
 const cors = require('cors');
 // الحين هنا كتبت كود يمنع اي اتصال خارج 
 const corsOptions = {
-  origin: 'http://localhost:5173', // رابط فرونت إند فقط
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+  // http://127.0.0.1:5500', 'http://localhost:5500
 };
 
 app.use(cors(corsOptions));
+
 const { Client } = require('@opensearch-project/opensearch');
 require('dotenv').config();
 console.log('JWT_SECRET from env:', process.env.JWT_SECRET);
