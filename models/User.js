@@ -1,47 +1,42 @@
+const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
-const { Client } = require('@opensearch-project/opensearch');
 
 class User {
-  constructor(client) {
-    this.client = client;
-    this.index = 'users';
-    this.rolesIndex = 'user_roles';
+  constructor(dbFilePath = './database.sqlite') {
+    this.db = new sqlite3.Database(dbFilePath, (err) => {
+      if (err) {
+        console.error('Could not connect to database', err);
+      } else {
+        console.log('Connected to SQLite database');
+      }
+    });
+
     this.initialize();
   }
 
-  async initialize() {
-    try {
-      const { body: exists } = await this.client.indices.exists({
-        index: this.index
-      });
+  initialize() {
+    const createTableSQL = `
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        username TEXT,
+        password TEXT NOT NULL,
+        status TEXT DEFAULT 'active',
+        role TEXT DEFAULT 'customer',
+        created_at TEXT NOT NULL,
+        reset_token TEXT,
+        reset_token_expiry TEXT
+      )
+    `;
 
-      if (!exists) {
-        await this.client.indices.create({
-          index: this.index,
-          body: {
-            mappings: {
-              properties: {
-                id: { type: 'keyword' },
-                email: { type: 'keyword' },
-                username: { type: 'keyword' },
-                password: { type: 'keyword' },
-                status: { type: 'keyword' },
-                created_at: { type: 'date' },
-                reset_token: { type: 'keyword' },
-                reset_token_expiry: { type: 'date' }
-              }
-            }
-          }
-        });
-        console.log('Index created successfully:', this.index);
+    this.db.run(createTableSQL, (err) => {
+      if (err) {
+        console.error('Failed to create users table:', err);
       } else {
-        console.log('Index already exists:', this.index);
+        console.log('Users table ready');
       }
-    } catch (error) {
-      console.error('Error initializing users index:', error);
-      throw error;
-    }
+    });
   }
 
   validatePasswordStrength(password) {
@@ -54,144 +49,109 @@ class User {
     return emailRegex.test(email);
   }
 
-  async create(userData) {
-    try {
-      if (!this.validateEmail(userData.email)) {
-        throw new Error('Invalid email format');
-      }
+  create(userData) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const { email, password, username, role } = userData;
 
-      if (!this.validatePasswordStrength(userData.password)) {
-        throw new Error('Password must be at least 8 characters long and contain at least one number, one uppercase letter, and one special character');
-      }
-
-      await this.initialize();
-
-      const { email, password, username } = userData;
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-
-      const user = {
-        id: uuidv4(),
-        email,
-        username,
-        password: hashedPassword,
-        status: 'active',
-        created_at: new Date().toISOString(),
-        reset_token: null,
-        reset_token_expiry: null
-      };
-
-      await this.client.index({
-        index: this.index,
-        id: user.id,
-        body: user,
-        refresh: true
-      });
-
-      const { password: _, ...userWithoutPassword } = user;
-      return userWithoutPassword;
-    } catch (error) {
-      console.error('Error creating user:', error);
-      throw error;
-    }
-  }
-
-  async findByEmail(email) {
-    const result = await this.client.search({
-      index: this.index,
-      body: {
-        query: {
-          term: { email: email }
+        if (!this.validateEmail(email)) {
+          return reject(new Error('Invalid email format'));
         }
+
+        if (!this.validatePasswordStrength(password)) {
+          return reject(new Error('Password must be at least 8 characters long and contain at least one number, one uppercase letter, and one special character'));
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const id = uuidv4();
+        const createdAt = new Date().toISOString();
+        const userRole = role || 'customer';
+
+        const sql = `INSERT INTO users (id, email, username, password, status, role, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+        this.db.run(sql, [id, email, username, hashedPassword, 'active', userRole, createdAt], function (err) {
+          if (err) {
+            return reject(err);
+          }
+          resolve({
+            id,
+            email,
+            username,
+            status: 'active',
+            role: userRole,
+            created_at: createdAt
+          });
+        });
+      } catch (err) {
+        reject(err);
       }
     });
-
-    if (result.body.hits.total.value === 0) {
-      return null;
-    }
-
-    return result.body.hits.hits[0]._source;
   }
 
-  async validatePassword(user, password) {
+  findByEmail(email) {
+    return new Promise((resolve, reject) => {
+      const sql = `SELECT * FROM users WHERE email = ?`;
+      this.db.get(sql, [email], (err, row) => {
+        if (err) return reject(err);
+        resolve(row || null);
+      });
+    });
+  }
+
+  findById(userId) {
+    return new Promise((resolve, reject) => {
+      const sql = `SELECT * FROM users WHERE id = ?`;
+      this.db.get(sql, [userId], (err, row) => {
+        if (err) return reject(err);
+        resolve(row || null);
+      });
+    });
+  }
+
+  validatePassword(user, password) {
     return bcrypt.compare(password, user.password);
   }
 
-  async updatePassword(userId, newPassword) {
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
+  updatePassword(userId, newPassword) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        const sql = `UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?`;
+        this.db.run(sql, [hashedPassword, userId], function(err) {
+          if (err) return reject(err);
+          resolve(this.changes);
+        });
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
 
-    await this.client.update({
-      index: this.index,
-      id: userId,
-      body: {
-        doc: {
-          password: hashedPassword,
-          reset_token: null,
-          reset_token_expiry: null
+  updateResetToken(userId, token, expiry) {
+    return new Promise((resolve, reject) => {
+      const sql = `UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE id = ?`;
+      this.db.run(sql, [token, expiry.toISOString(), userId], function(err) {
+        if (err) return reject(err);
+        resolve(this.changes);
+      });
+    });
+  }
+
+  findByResetToken(token) {
+    return new Promise((resolve, reject) => {
+      const sql = `SELECT * FROM users WHERE reset_token = ?`;
+      this.db.get(sql, [token], (err, row) => {
+        if (err) return reject(err);
+        if (!row) return resolve(null);
+
+        if (new Date(row.reset_token_expiry) < new Date()) {
+          return resolve(null); // Token expired
         }
-      }
+        resolve(row);
+      });
     });
-  }
-
-  async updateResetToken(userId, token, expiry) {
-    await this.client.update({
-      index: this.index,
-      id: userId,
-      body: {
-        doc: {
-          reset_token: token,
-          reset_token_expiry: expiry.toISOString()
-        }
-      }
-    });
-  }
-  
-
-async findByResetToken(token) {
-  console.log('Looking for reset token:', token);
-
-  const result = await this.client.search({
-    index: this.index,
-    body: {
-      query: {
-        term: { reset_token: token }
-      }
-    }
-  });
-
-  if (result.body.hits.total.value === 0) {
-    console.log('No reset token found');
-    return null;
-  }
-
-  const user = result.body.hits.hits[0]._source;
-
-  // ✅ تحقق من تاريخ الانتهاء
-  if (new Date(user.reset_token_expiry) < new Date()) {
-    console.log('Reset token has expired');
-    return null;
-  }
-
-  console.log('Found user reset token expiry:', user.reset_token_expiry);
-  return user;
-}
-// داخل كلاس User
-async findById(userId) {
-  try {
-    const result = await this.client.get({
-      index: this.index,
-      id: userId
-    });
-    return result.body._source;
-  } catch (error) {
-    if (error.meta.statusCode === 404) {
-      return null;
-    }
-    throw error;
   }
 }
 
-
-}
 module.exports = User;
