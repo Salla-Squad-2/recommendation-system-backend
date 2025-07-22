@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8" /><title>Profile</title></head>
+<body>
+  <h1>Your Profile</h1>
+  <pre id="profileData">Loading profile...</pre>
+
+  <script>
+    async function loadProfile() {
+      const accessToken = localStorage.getItem('accessToken');
+
+      if (!accessToken) {
+        alert('You are not logged in!');
+        window.location.href = 'justtestfront.html';
+        return;
+      }
+
+      try {
+        const res = await fetch('http://localhost:3001/api/auth/profile', {
+          headers: {
+            'Authorization': 'Bearer ' + accessToken,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!res.ok) {
+          alert('Session expired or access denied.');
+          // ممكن تحذف التوكنات من localStorage لأن صلاحيتها انتهت
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          window.location.href = 'login.html';
+          return;
+        }
+
+        const data = await res.json();
+        document.getElementById('profileData').textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        alert('Error fetching profile: ' + err.message);
+      }
+    }
+
+    loadProfile();
+  </script>
+</body>
+</html>
