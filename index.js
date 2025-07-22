@@ -2,12 +2,6 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 const cors = require('cors');
-// الحين هنا كتبت كود يمنع اي اتصال خارج 
-const corsOptions = {
-  origin: 'http://localhost:5173', // رابط فرونت إند فقط
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
-};
 
 app.use(cors(corsOptions));
 const { Client } = require('@opensearch-project/opensearch');
