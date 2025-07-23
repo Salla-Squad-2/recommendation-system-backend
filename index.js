@@ -2,6 +2,10 @@ const express = require('express');
 const app = express();
 app.use(express.json());
 const cors = require('cors');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./routes/swaggerSpec');
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // الحين هنا كتبت كود يمنع اي اتصال خارج 
 const corsOptions = {
   origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
