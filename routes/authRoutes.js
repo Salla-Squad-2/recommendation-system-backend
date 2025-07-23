@@ -12,10 +12,40 @@ req.userModel = new User();
   next();
 });
 
+/**
+ * @swagger
+ * /api/auth/history:
+ *   get:
+ *     summary: Get admin history page
+ *     description: Returns a message and user info. Accessible only by admin users.
+ *     tags:
+ *       - Auth
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Admin history page data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: مرحبا بك في صفحة التاريخ
+ *                 user:
+ *                   type: object
+ *                   description: Authenticated admin user data
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ *       403:
+ *         description: Forbidden, user is not admin
+ */
 // ⛔ هذه الصفحة محمية فقط للأدمن
 router.get('/history', verifyToken, checkRole(['admin']), (req, res) => {
   res.json({ message: 'مرحبا بك في صفحة التاريخ', user: req.user });
 });
+
 /**
  * @swagger
  * /api/auth/register:
@@ -343,6 +373,34 @@ router.post('/forgot-password', authController.forgotPassword);
  */
 
 router.post('/reset-password', authController.resetPassword);
+
+/**
+ * @swagger
+ * /api/auth/profile:
+ *   get:
+ *     summary: Get user profile page
+ *     description: Returns a message and user info for the authenticated user.
+ *     tags:
+ *       - Auth
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile page data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: مرحبا بك في صفحتك الشخصية
+ *                 user:
+ *                   type: object
+ *                   description: Authenticated user data
+ *       401:
+ *         description: Unauthorized, missing or invalid token
+ */
 
 // صفحة البروفايل للمستخدمين المسجلين فقط
 router.get('/profile', verifyToken, (req, res) => {
