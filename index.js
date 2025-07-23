@@ -3,7 +3,22 @@ const app = express();
 app.use(express.json());
 const cors = require('cors');
 
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./routes/swaggerSpec');
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+// الحين هنا كتبت كود يمنع اي اتصال خارج 
+const corsOptions = {
+  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+  // http://127.0.0.1:5500', 'http://localhost:5500
+};
+
+
 app.use(cors(corsOptions));
+
 const { Client } = require('@opensearch-project/opensearch');
 require('dotenv').config();
 console.log('JWT_SECRET from env:', process.env.JWT_SECRET);
