@@ -42,15 +42,14 @@ services:
     ports:
       - "5601:5601"
     environment:
+
       - OPENSEARCH_HOSTS=http://opensearch:9200
       - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
     depends_on:
       - opensearch
 
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: dana0/backend:latest
     container_name: api-node
     ports:
       - '3008:3008'
@@ -63,27 +62,16 @@ services:
     volumes:
       - api-data:/usr/src/app  
 
+
   frontend:
-    build:
-      context: ../Dalel-frontend
-      dockerfile: Dockerfile
+    image: dana0/frontend:latest
     container_name: dalel-frontend
     ports:
       - '5173:5173'
-    volumes:
-      - ../Dalel-frontend/src:/app/src
-      - ../Dalel-frontend/public:/app/public
-      - ../Dalel-frontend/package.json:/app/package.json
-      - ../Dalel-frontend/package-lock.json:/app/package-lock.json
-      - /app/node_modules
-    environment:
-      - CHOKIDAR_USEPOLLING=true
-    env_file:
-      - ../Dalel-frontend/.env
-    command: npm run dev
 
 
 volumes:
   opensearch-data:
   api-data:
     
+

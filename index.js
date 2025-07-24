@@ -32,6 +32,7 @@ app.use('/api/recommendations', recommendationRoutes);
 const { Client } = require('@opensearch-project/opensearch');
 console.log('JWT_SECRET from env:', process.env.JWT_SECRET);
 
+
 const { authLimiter } = require('./middleware/rateLimiter');
 const port = process.env.PORT || 3008;
 
@@ -46,7 +47,7 @@ app.use(cors({
 
 // Parse JSON bodies
 app.use(express.json());
-
+ // I change it from .OS_URL to-> .OS_NODE
 // OpenSearch client
 const client = new Client({
   node: process.env.OS_URL || 'http://localhost:9200',

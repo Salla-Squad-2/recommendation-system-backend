@@ -4,6 +4,7 @@ FROM node:16-alpine
 # ✅ إضافة Python ومترجمات C/C++ المطلوبة لـ sqlite3
 RUN apk add --no-cache python3 make g++ sqlite
 
+
 # Create app directory
 WORKDIR /usr/src/app
 
