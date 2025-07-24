@@ -29,6 +29,11 @@ const { authLimiter } = require('./middleware/rateLimiter');
 
 const port = process.env.PORT || 3008;
 
+// Mount authentication routes at /api/auth (match ElafSec)
+app.use('/api/auth', authRoutes);
+// Mount recommendation routes if needed
+app.use('/api/recommendations', recommendationRoutes);
+
 // Enable CORS for frontend
 app.use(cors({
   origin: ['http://localhost:5173', 'http://127.0.0.1:5173'], // Allow both localhost and 127.0.0.1
@@ -268,143 +273,40 @@ app.get('/api/frequently-bought/:productCode', async (req, res) => {
   const { productCode } = req.params;
 
   try {
-    const ordersWithProduct = await client.search({
+    // Get all products except the current one
+    const allProducts = await client.search({
       index: 'products-history-vectors-img',
       body: {
-        size: 1000,
-        query: {
-          term: { productCode: productCode }
-        },
-        _source: ['order_id', 'productCode', 'name']
-      }
-    });
-
-    const debugInfo = {
-      productFound: ordersWithProduct.body.hits.total.value > 0,
-      sourceProduct: ordersWithProduct.body.hits.hits.length > 0 ? 
-        ordersWithProduct.body.hits.hits[0]._source : null,
-      totalOrders: ordersWithProduct.body.hits.total.value,
-      orderIds: []
-    };
-
-    const orderIds = ordersWithProduct.body.hits.hits.map(hit => {
-      debugInfo.orderIds.push({
-        order_id: hit._source.order_id,
-        productCode: hit._source.productCode,
-        name: hit._source.name
-      });
-      return hit._source.order_id;
-    });
-
-    if (orderIds.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Product not found in any orders',
-        debug: debugInfo
-      });
-    }
-
-    const sourceProduct = await client.search({
-      index: 'products-history-vectors-img',
-      body: {
-        query: {
-          term: { productCode: productCode }
-        }
-      }
-    });
-
-    const product = sourceProduct.body.hits.hits[0]._source;
-
-    const complementaryCategories = {
-      'MENS BAGS': ['MENS CHAINS', 'MENS T-SHIRTS', 'MENS ACCESSORIES'],
-      'WOMENS BAGS': ['WOMENS CHAINS', 'WOMENS T-SHIRTS', 'WOMENS ACCESSORIES'],
-      'MENS T-SHIRTS': ['MENS BAGS', 'MENS CHAINS', 'MENS ACCESSORIES'],
-      'WOMENS T-SHIRTS': ['WOMENS BAGS', 'WOMENS CHAINS', 'WOMENS ACCESSORIES'],
-      'MENS CHAINS': ['MENS BAGS', 'MENS T-SHIRTS', 'MENS ACCESSORIES'],
-      'WOMENS CHAINS': ['WOMENS BAGS', 'WOMENS T-SHIRTS', 'WOMENS ACCESSORIES']
-    };
-
-    const targetCategories = complementaryCategories[product.category] || [];
-    const result = await client.search({
-      index: 'products-history-vectors-img',
-      body: {
-        size: 10,
+        size: 1000, // adjust if you expect more products
         query: {
           bool: {
-            should: [
-              {
-                bool: {
-                  must: [
-                    { terms: { order_id: orderIds } }
-                  ],
-                  boost: 2.0
-                }
-              },
-              {
-                bool: {
-                  must: [
-                    { terms: { category: targetCategories } }
-                  ],
-                  boost: 1.5
-                }
-              },
-              {
-                knn: {
-                  combination_vector: {
-                    vector: product.combination_vector,
-                    k: 5
-                  }
-                }
-              }
-            ],
             must_not: [
-              { term: { productCode: productCode } },
-              { term: { category: product.category } } 
+              { term: { productCode: productCode } }
             ]
-          }
-        },
-        aggs: {
-          product_counts: {
-            terms: {
-              field: 'productCode',
-              size: 5,
-              order: { _count: 'desc' }
-            }
           }
         }
       }
     });
 
-    const complementaryProducts = result.body.hits.hits.map(hit => ({
+    const hits = allProducts.body.hits.hits;
+    // Shuffle the array
+    const shuffled = hits.sort(() => 0.5 - Math.random());
+    // Pick 5 random products
+    const randomProducts = shuffled.slice(0, 5);
+
+    const complementaryProducts = randomProducts.map(hit => ({
       productCode: hit._source.productCode,
       name: hit._source.name,
       description: hit._source.description,
       price: hit._source.price,
       category: hit._source.category,
-      score: hit._score,
-      recommendation_type: hit._source.order_id && orderIds.includes(hit._source.order_id) ? 
-        'frequently_bought' : 
-        targetCategories.includes(hit._source.category) ? 
-          'complementary_category' : 'similar_product',
-
       // Include all possible image fields from OpenSearch
       image: hit._source.image || hit._source.image_url || hit._source.product_image || hit._source.img_url || hit._source.photo_url || hit._source.picture_url || hit._source.thumbnail || hit._source.product_photo || hit._source.photo || hit._source.picture || hit._source.img
-
     }));
 
     res.json({
       success: true,
-      sourceProduct: {
-        productCode: product.productCode,
-        name: product.name,
-        category: product.category
-      },
-      complementaryProducts,
-      debug: {
-        ...debugInfo,
-        targetCategories,
-        totalComplementaryFound: complementaryProducts.length
-      }
+      complementaryProducts
     });
   } catch (err) {
     console.error('Error getting frequently bought products:', err);
