@@ -30,7 +30,7 @@ services:
     depends_on:
       - opensearch
     volumes:
-      - ../dataset:/app/dataset
+      - ../Recommendation_system/dataset:/app/dataset
       - ../Recommendation_system/schema:/app/schema
     environment:
       - OPENSEARCH_HOST=http://opensearch:9200
