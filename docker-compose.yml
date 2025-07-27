@@ -1,0 +1,87 @@
+services:
+  opensearch:
+    image: opensearchproject/opensearch:2.14.0
+    container_name: opensearch
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=Dalel123dalel#
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - '9200:9200'
+      - '9600:9600'
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  data-loader:
+    build:
+      context: ../Recommendation_system
+    container_name: data-loader
+    depends_on:
+      - opensearch
+    volumes:
+      - ../dataset:/app/dataset
+      - ../Recommendation_system/schema:/app/schema
+    environment:
+      - OPENSEARCH_HOST=http://opensearch:9200
+    restart: "no"  
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2.14.0
+    container_name: opensearch-dashboards
+    ports:
+      - "5601:5601"
+    environment:
+      - OPENSEARCH_HOSTS=http://opensearch:9200
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    depends_on:
+      - opensearch
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: api-node
+    ports:
+      - '3008:3008'
+    environment:
+      - PORT=3008
+      - OS_URL=http://opensearch:9200
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    volumes:
+      - api-data:/usr/src/app  
+
+  frontend:
+    build:
+      context: ../Dalel-frontend
+      dockerfile: Dockerfile
+    container_name: dalel-frontend
+    ports:
+      - '5173:5173'
+    volumes:
+      - ../Dalel-frontend/src:/app/src
+      - ../Dalel-frontend/public:/app/public
+      - ../Dalel-frontend/package.json:/app/package.json
+      - ../Dalel-frontend/package-lock.json:/app/package-lock.json
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    env_file:
+      - ../Dalel-frontend/.env
+    command: npm run dev
+
+
+volumes:
+  opensearch-data:
+  api-data:

@@ -1,0 +1,32 @@
+{
+  "name": "dalel-backend",
+  "version": "1.0.0",
+  "description": "Backend for Dalel Fashion Store with OpenSearch integration",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "@opensearch-project/opensearch": "^2.4.0",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.0.1",
+    "jsonwebtoken": "^9.0.1",
+    "nodemon": "^3.0.1",
+    "sqlite3": "^5.1.7",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "uuid": "^9.0.0"
+  },
+  "keywords": [
+    "opensearch",
+    "recommendations",
+    "fashion",
+    "ecommerce"
+  ],
+  "author": "Dalel Team",
+  "license": "MIT"
+}
