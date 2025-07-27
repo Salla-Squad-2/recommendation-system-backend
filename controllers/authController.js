@@ -12,6 +12,13 @@ exports.register = async (req, res) => {
   try {
     const { email, password, username } = req.body;
 
+<<<<<<< HEAD
+    
+    // ✅ طباعة البيانات المستلمة من الفرونت
+    console.log('📥 بيانات التسجيل:', { email, password, username });
+
+=======
+>>>>>>> origin/main
     if (!email || !password || !username) {
       return res.status(400).json({
         success: false,
@@ -26,6 +33,12 @@ exports.register = async (req, res) => {
 
     const user = await req.userModel.create({ email, password, username });
 
+<<<<<<< HEAD
+     // ✅ طباعة نتيجة إنشاء المستخدم
+    console.log('✅ تم إنشاء المستخدم:', user);
+
+=======
+>>>>>>> origin/main
     const { accessToken, refreshToken } = generateTokens({
       id: user.id,
       email: user.email,
@@ -48,6 +61,11 @@ exports.register = async (req, res) => {
     });
 
   } catch (error) {
+<<<<<<< HEAD
+        // ✅ طباعة الخطأ إذا صار
+    console.error('❌ خطأ أثناء التسجيل:', error.message);
+=======
+>>>>>>> origin/main
     res.status(500).json({ message: 'Error registering user', error: error.message });
   }
 };
