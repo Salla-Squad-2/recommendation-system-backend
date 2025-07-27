@@ -1,10 +1,20 @@
 const express = require('express');
 const app = express();
+<<<<<<< HEAD
 const cors = require('cors');
 require('dotenv').config();
 
 app.use(express.json());
 
+=======
+app.use(express.json());
+const cors = require('cors');
+
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./routes/swaggerSpec');
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+>>>>>>> origin/main
 // الحين هنا كتبت كود يمنع اي اتصال خارج 
 const corsOptions = {
   origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
@@ -14,6 +24,7 @@ const corsOptions = {
   // http://127.0.0.1:5500', 'http://localhost:5500
 };
 
+<<<<<<< HEAD
 app.use(cors(corsOptions));
 
 // Swagger documentation setup:
@@ -36,6 +47,26 @@ console.log('JWT_SECRET from env:', process.env.JWT_SECRET);
 const { authLimiter } = require('./middleware/rateLimiter');
 const port = process.env.PORT || 3008;
 
+=======
+
+app.use(cors(corsOptions));
+
+const { Client } = require('@opensearch-project/opensearch');
+require('dotenv').config();
+console.log('JWT_SECRET from env:', process.env.JWT_SECRET);
+// Import routes
+const authRoutes = require('./routes/authRoutes');
+const recommendationRoutes = require('./routes/recommendationRoutes');
+const { authLimiter } = require('./middleware/rateLimiter');
+
+const port = process.env.PORT || 3008;
+
+// Mount authentication routes at /api/auth (match ElafSec)
+app.use('/api/auth', authRoutes);
+// Mount recommendation routes if needed
+app.use('/api/recommendations', recommendationRoutes);
+
+>>>>>>> origin/main
 // Enable CORS for frontend
 app.use(cors({
   origin: ['http://localhost:5173', 'http://127.0.0.1:5173'], // Allow both localhost and 127.0.0.1
@@ -44,7 +75,13 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+<<<<<<< HEAD
  // I change it from .OS_URL to-> .OS_NODE
+=======
+// Parse JSON bodies
+app.use(express.json());
+
+>>>>>>> origin/main
 // OpenSearch client
 const client = new Client({
   node: process.env.OS_URL || 'http://localhost:9200',
@@ -651,8 +688,11 @@ app.get('/api/customers/:customerId', async (req, res) => {
   }
 });
 
+<<<<<<< HEAD
 app.set('trust proxy', true);
 
+=======
+>>>>>>> origin/main
 // Start server
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);

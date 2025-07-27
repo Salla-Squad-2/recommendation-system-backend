@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+version: '3.8'
+>>>>>>> origin/main
 services:
   opensearch:
     image: opensearchproject/opensearch:2.14.0
@@ -6,7 +10,10 @@ services:
       - discovery.type=single-node
       - plugins.security.disabled=true
       - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+<<<<<<< HEAD
       - OPENSEARCH_INITIAL_ADMIN_PASSWORD=Dalel123dalel#
+=======
+>>>>>>> origin/main
     ulimits:
       memlock:
         soft: -1
@@ -14,6 +21,7 @@ services:
     ports:
       - '9200:9200'
       - '9600:9600'
+<<<<<<< HEAD
     volumes:
       - opensearch-data:/usr/share/opensearch/data
     healthcheck:
@@ -43,10 +51,19 @@ services:
     environment:
       - OPENSEARCH_HOSTS=http://opensearch:9200
       - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+=======
+
+  vectorizer:
+    build: ./vectorizer-python
+    container_name: vectorizer
+    environment:
+      - OPENSEARCH_URL=http://opensearch:9200
+>>>>>>> origin/main
     depends_on:
       - opensearch
 
   api:
+<<<<<<< HEAD
     build:
       context: .
       dockerfile: Dockerfile
@@ -85,3 +102,13 @@ services:
 volumes:
   opensearch-data:
   api-data:
+=======
+    build: ./api-node
+    container_name: api-node
+    environment:
+      - OS_NODE=http://opensearch:9200
+    ports:
+      - '8000:8000'
+    depends_on:
+      - opensearch
+>>>>>>> origin/main
