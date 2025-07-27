@@ -47,7 +47,6 @@ app.use(cors({
 // Parse JSON bodies
 app.use(express.json());
 
->>>>>>> origin/main
 // OpenSearch client
 const client = new Client({
   node: process.env.OS_URL || 'http://localhost:9200',
