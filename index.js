@@ -32,6 +32,7 @@ app.use('/api/recommendations', recommendationRoutes);
 const { Client } = require('@opensearch-project/opensearch');
 console.log('JWT_SECRET from env:', process.env.JWT_SECRET);
 
+
 const { authLimiter } = require('./middleware/rateLimiter');
 const port = process.env.PORT || 3008;
 
