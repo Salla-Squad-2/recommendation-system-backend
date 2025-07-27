@@ -110,11 +110,8 @@ class User {
   }
 
   validatePassword(user, password) {
-<<<<<<< HEAD
     return bcrypt.compare(password, user.password_hash); //from user.password -> user.password_hash
-=======
-    return bcrypt.compare(password, user.password);
->>>>>>> origin/main
+
   }
 
   updatePassword(userId, newPassword) {
