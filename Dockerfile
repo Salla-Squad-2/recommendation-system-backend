@@ -1,6 +1,12 @@
 # Use Node.js 16 Alpine as base image
 FROM node:16-alpine
 
+<<<<<<< HEAD
+# ✅ إضافة Python ومترجمات C/C++ المطلوبة لـ sqlite3
+RUN apk add --no-cache python3 make g++ sqlite
+
+=======
+>>>>>>> origin/main
 # Create app directory
 WORKDIR /usr/src/app
 
@@ -9,7 +15,11 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 
 # Install production dependencies only
+<<<<<<< HEAD
+RUN npm install --omit=dev
+=======
 RUN npm ci --only=production
+>>>>>>> origin/main
 
 # Copy app source
 COPY . .
