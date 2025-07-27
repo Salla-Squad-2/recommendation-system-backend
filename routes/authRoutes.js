@@ -1,5 +1,8 @@
 const express = require('express');
+<<<<<<< HEAD
 console.log('✅ تم تحميل authRoutes.js'); //for checking if this file is loaded
+=======
+>>>>>>> origin/main
 const router = express.Router();
 const authController = require('../controllers/authController');
 const User = require('../models/User');
@@ -99,10 +102,14 @@ router.get('/history', verifyToken, checkRole(['admin']), (req, res) => {
  *       500:
  *         description: Server error during registration
  */
+<<<<<<< HEAD
  router.post('/register', authLimiter, authController.register);
 // ✅ مؤقتًا فقط، علشان نتأكد:
 //router.post('/register', authController.register);
 
+=======
+router.post('/register', authLimiter, authController.register);
+>>>>>>> origin/main
 /**
  * @swagger
  * /api/auth/login:
