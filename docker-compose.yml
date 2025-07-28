@@ -25,8 +25,7 @@ services:
       retries: 10
 
   data-loader:
-    build:
-      context: ../Recommendation_system
+    image: dana0/opensearch-uploader:latest
     container_name: data-loader
     depends_on:
       - opensearch
