@@ -655,7 +655,6 @@ app.get('/api/customers/:customerId', async (req, res) => {
 });
 
 
-app.set('trust proxy', true);
 
 // Start server
 app.listen(port, () => {
