@@ -7,6 +7,7 @@ services:
       - discovery.type=single-node
       - plugins.security.disabled=true
       - OPENSEARCH_JAVA_OPTS=-Xms4g -Xmx4g
+
       - OPENSEARCH_INITIAL_ADMIN_PASSWORD=Dalel123dalel#
     ulimits:
       memlock:
@@ -45,7 +46,6 @@ services:
     ports:
       - "5601:5601"
     environment:
-
       - OPENSEARCH_HOSTS=http://opensearch:9200
       - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
     depends_on:
@@ -78,6 +78,7 @@ services:
       - '5173:5173'
     networks:
       - opensearch-net
+
 
 
 volumes:
