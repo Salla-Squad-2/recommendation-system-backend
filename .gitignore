@@ -47,3 +47,6 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+##cleaned backend_repo/.gitignore
+cleaned_backend_repo/
+dataset/customer_history_data_ar_with_vectors.csv

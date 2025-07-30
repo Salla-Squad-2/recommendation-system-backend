@@ -110,7 +110,7 @@ class User {
   }
 
   validatePassword(user, password) {
-    return bcrypt.compare(password, user.password_hash); //from user.password -> user.password_hash
+    return bcrypt.compare(password, user.password); //from user.password -> user.password_hash
 
   }
 

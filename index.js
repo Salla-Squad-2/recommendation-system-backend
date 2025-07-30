@@ -2,6 +2,9 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 require('dotenv').config();
+
+app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? true : false);
+
 app.use(express.json());
 
 // الحين هنا كتبت كود يمنع اي اتصال خارج 
@@ -655,7 +658,7 @@ app.get('/api/customers/:customerId', async (req, res) => {
 });
 
 
-app.set('trust proxy', true);
+//app.set('trust proxy', true);
 
 // Start server
 app.listen(port, () => {
