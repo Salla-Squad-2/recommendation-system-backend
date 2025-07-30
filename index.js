@@ -2,6 +2,9 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 require('dotenv').config();
+
+app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? true : false);
+
 app.use(express.json());
 
 // الحين هنا كتبت كود يمنع اي اتصال خارج 
@@ -47,7 +50,6 @@ app.use(cors({
 
 // Parse JSON bodies
 app.use(express.json());
- // I change it from .OS_URL to-> .OS_NODE
 // OpenSearch client
 const client = new Client({
   node: process.env.OS_URL || 'http://localhost:9200',
@@ -655,7 +657,7 @@ app.get('/api/customers/:customerId', async (req, res) => {
 });
 
 
-app.set('trust proxy', true);
+//app.set('trust proxy', true);
 
 // Start server
 app.listen(port, () => {

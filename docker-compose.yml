@@ -22,6 +22,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    networks:
+      - opensearch-net
 
   data-loader:
     image: dana0/opensearch-uploader:latest
@@ -33,7 +35,9 @@ services:
       - ../Recommendation_system/schema:/app/schema
     environment:
       - OPENSEARCH_HOST=http://opensearch:9200
-    restart: "no"  
+    restart: "no" 
+    networks:
+      - opensearch-net 
 
   opensearch-dashboards:
     image: opensearchproject/opensearch-dashboards:2.14.0
@@ -46,12 +50,16 @@ services:
       - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
     depends_on:
       - opensearch
+    networks:
+      - opensearch-net
 
   api:
     image: dana0/backend:latest
     container_name: api-node
     ports:
       - '3008:3008'
+    env_file:
+      - .env
     environment:
       - PORT=3008
       - OS_URL=http://opensearch:9200
@@ -60,17 +68,24 @@ services:
         condition: service_healthy
     volumes:
       - api-data:/usr/src/app  
-
+    networks:
+      - opensearch-net
 
   frontend:
     image: dana0/frontend:latest
     container_name: dalel-frontend
     ports:
       - '5173:5173'
+    networks:
+      - opensearch-net
 
 
 volumes:
   opensearch-data:
   api-data:
+
+  
+networks:
+  opensearch-net:
     
 
