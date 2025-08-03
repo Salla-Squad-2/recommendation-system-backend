@@ -76,8 +76,6 @@ services:
     container_name: dalel-frontend
     ports:
       - '5173:5173'
-    env_file:
-      - .env
     networks:
       - opensearch-net
 
