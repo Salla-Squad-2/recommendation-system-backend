@@ -3,7 +3,12 @@ const app = express();
 const cors = require('cors');
 require('dotenv').config();
 
-app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? true : false);
+//app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? true : false);
+if (process.env.TRUST_PROXY && process.env.TRUST_PROXY === 'true') {
+  app.set('trust proxy', true);
+} else {
+  app.set('trust proxy', false);
+}
 
 app.use(express.json());
 
