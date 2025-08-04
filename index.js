@@ -4,11 +4,21 @@ const cors = require('cors');
 require('dotenv').config();
 
 //app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? true : false);
-if (process.env.TRUST_PROXY && process.env.TRUST_PROXY === 'true') {
-  app.set('trust proxy', true);
-} else {
-  app.set('trust proxy', false);
+//if (process.env.TRUST_PROXY && process.env.TRUST_PROXY === 'true') {
+  //app.set('trust proxy', true);
+//} else {
+  //app.set('trust proxy', false);
+//}
+
+// test loopback proxy
+if (process.env.TRUST_PROXY === 'true') {
+  app.set('trust proxy', 'loopback');
 }
+
+app.use((req, res, next) => {
+  console.log('Client IP:', req.ip);
+  next();
+});
 
 app.use(express.json());
 
@@ -46,7 +56,7 @@ const port = process.env.PORT || 3008;
 
 // Enable CORS for frontend
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://127.0.0.1:5173'], // Allow both localhost and 127.0.0.1
+  origin: ['http://dalel-frontend:5173'], // Allow both localhost and 127.0.0.1
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
