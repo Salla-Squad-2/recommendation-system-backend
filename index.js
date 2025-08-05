@@ -11,9 +11,9 @@ require('dotenv').config();
 //}
 
 // test loopback proxy
-if (process.env.TRUST_PROXY === 'true') {
-  app.set('trust proxy', 'loopback');
-}
+//if (process.env.TRUST_PROXY === 'true') {
+  //app.set('trust proxy', 'loopback');
+//}
 
 app.use((req, res, next) => {
   console.log('Client IP:', req.ip);
@@ -51,7 +51,7 @@ const { Client } = require('@opensearch-project/opensearch');
 console.log('JWT_SECRET from env:', process.env.JWT_SECRET);
 
 
-const { authLimiter } = require('./middleware/rateLimiter');
+//const { authLimiter } = require('./middleware/rateLimiter');
 const port = process.env.PORT || 3008;
 
 // Enable CORS for frontend
@@ -671,8 +671,6 @@ app.get('/api/customers/:customerId', async (req, res) => {
   }
 });
 
-
-//app.set('trust proxy', true);
 
 // Start server
 app.listen(port, () => {
