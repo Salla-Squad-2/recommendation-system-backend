@@ -19,9 +19,9 @@ services:
       - opensearch-data:/usr/share/opensearch/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9200"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
+      interval: 15s
+      timeout: 10s
+      retries: 20
     networks:
       - opensearch-net
 
