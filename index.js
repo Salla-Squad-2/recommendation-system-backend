@@ -24,7 +24,7 @@ app.use(express.json());
 
 // الحين هنا كتبت كود يمنع اي اتصال خارج 
 const corsOptions = {
-  origin: ['http://dalel-frontend:5173'],
+  origin: ['http://localhost:5173'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -56,7 +56,7 @@ const port = process.env.PORT || 3008;
 
 // Enable CORS for frontend
 app.use(cors({
-  origin: ['http://dalel-frontend:5173'], // Allow both localhost and 127.0.0.1
+  origin: ['http://localhost:5173'], // Allow both localhost and 127.0.0.1
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
